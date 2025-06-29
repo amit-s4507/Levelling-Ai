@@ -6,7 +6,7 @@ import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 
- const getChannelStats = asyncHandler(async (req, res) => {
+const getChannelStats = asyncHandler(async (req, res) => {
   const channelStats = {};
 
   const videoStates = await Video.aggregate([
@@ -110,6 +110,27 @@ const getChannelVideos = asyncHandler(async (req, res) => {
         createdAt: -1,
       },
     },
+    // lookup for owner details
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              username: 1,
+              fullName: 1,
+              avatar: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $unwind: "$owner"
+    },
     // lookup for likes
     {
       $lookup: {
@@ -154,12 +175,17 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     {
       $project: {
         title: 1,
+        description: 1,
+        videoFile: 1,
         thumbnail: 1,
+        duration: 1,
+        views: 1,
         isPublished: 1,
+        owner: 1,
+        category: 1,
+        difficulty: 1,
         createdAt: 1,
         updatedAt: 1,
-        description: 1,
-        views: 1,
         likesCount: {
           $size: "$likes",
         },
@@ -175,10 +201,10 @@ const getChannelVideos = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, allVideos, "All videos fetched successfully"));
+    .json(new ApiResponse(200, { videos: allVideos }, "All videos fetched successfully"));
 });
 
 export {
     getChannelStats, 
     getChannelVideos
-    }
+}

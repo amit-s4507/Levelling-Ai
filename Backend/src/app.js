@@ -1,65 +1,40 @@
 import express from "express"
 import cors from "cors"
 import cookieParser from "cookie-parser"
-import rateLimit from "express-rate-limit"
+import { rateLimit } from 'express-rate-limit'
 import helmet from "helmet"
 import morgan from "morgan"
 import { logger, stream, logError, logAPIRequest } from "./utils/logger.js"
 
 const app = express()
 
-// check this middleware beacause the cokkie will not set
-// app.use(cors())
-// app.use((req, res, next) => {
-//     res.header('Access-Control-Allow-Origin', 'http://localhost:5173'); // Replace with your frontend's origin
-//     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
-//     res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-//     res.header('Access-Control-Allow-Credentials', 'true'); // Important if using cookies or authentication
-//     next();
-// });
+// Security middleware with video streaming support
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false
+}));
 
-let corsorigin={
-    origin: process.env.CORS_ORIGIN,
+// CORS configuration
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
     credentials: true,
-    methods: "GET, POST, PUT, DELETE",
-}
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range']
+}));
 
-// Security middleware
-app.use(helmet());
-
-// Rate limiting middleware
+// Rate limiting
 const limiter = rateLimit({
-    windowMs: process.env.RATE_LIMIT_WINDOW_MS || 900000, // 15 minutes
-    max: process.env.RATE_LIMIT_MAX_REQUESTS || 100 // limit each IP to 100 requests per windowMs
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 500 // limit each IP to 500 requests per windowMs
 });
-
-// Request logging
-app.use(morgan('combined', { stream }));
-
-// Request timing middleware
-app.use((req, res, next) => {
-    const start = Date.now();
-    res.on('finish', () => {
-        const duration = Date.now() - start;
-        logAPIRequest(req, res, duration);
-    });
-    next();
-});
-
 app.use(limiter);
-app.use(cors(corsorigin))
 
-
-
-
-app.use(express.json({limit: "16kb"}))
-app.use(express.urlencoded({extended: true, limit: "16kb"}))
+app.use(express.json({ limit: "16kb" }))
+app.use(express.urlencoded({ extended: true, limit: "16kb" }))
 app.use(express.static("public"))
 app.use(cookieParser())
 console.log("app.js----", process.env.CORS_ORIGIN)
-
-
-
 
 //routes import
 import userRouter from './routes/user.routes.js'
@@ -93,11 +68,11 @@ app.use("/api/v1/progress", progressRouter);
 
 // Global error handler
 app.use((err, req, res, next) => {
-    logError(err, req);
+    console.error(err.stack);
     res.status(500).json({
         success: false,
         message: "Something went wrong!",
-        error: process.env.NODE_ENV === "development" ? err.message : undefined
+        error: process.env.NODE_ENV === "development" ? err.message : null
     });
 });
 

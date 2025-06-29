@@ -326,8 +326,9 @@ const updateVideoMetrics = asyncHandler(async (req, res) => {
     );
 });
 
-const updateView = asyncHandler(async (req, res) => {
+const updateVideoView = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
+    const userId = req.user._id;
 
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid video ID");
@@ -339,12 +340,20 @@ const updateView = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Video not found");
     }
 
-    // Increment views
-    video.views += 1;
-    await video.save();
+    // Check if user has already viewed this video
+    const existingView = video.viewedBy.find(
+        view => view.user.toString() === userId.toString()
+    );
+
+    if (!existingView) {
+        // If it's a new view, increment the view count and add to viewedBy
+        video.views += 1;
+        video.viewedBy.push({ user: userId });
+        await video.save();
+    }
 
     return res.status(200).json(
-        new ApiResponse(200, { views: video.views }, "View count updated successfully")
+        new ApiResponse(200, { views: video.views }, "Video view updated successfully")
     );
 });
 
@@ -356,5 +365,5 @@ export {
     deleteVideo,
     togglePublishStatus,
     updateVideoMetrics,
-    updateView
+    updateVideoView
 }

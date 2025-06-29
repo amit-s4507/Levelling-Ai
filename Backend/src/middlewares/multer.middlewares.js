@@ -19,17 +19,40 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  // Accept images only
-  if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
-    return cb(new Error('Only image files are allowed!'), false);
+  if (file.fieldname === "videoFile") {
+    // Accept video files
+    if (!file.originalname.match(/\.(mp4|webm|mkv|avi|mov)$/i)) {
+      return cb(new Error('Only video files are allowed!'), false);
+    }
+  } else if (file.fieldname === "thumbnail" || file.fieldname === "avatar" || file.fieldname === "coverImage") {
+    // Accept image files
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/i)) {
+      return cb(new Error('Only image files are allowed!'), false);
+    }
   }
   cb(null, true);
 };
 
-export const upload = multer({
+const videoSizeLimit = 100 * 1024 * 1024; // 100MB
+const imageSizeLimit = 5 * 1024 * 1024;   // 5MB
+
+const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max file size
+    fileSize: videoSizeLimit, // This will be overridden for image fields
   }
 });
+
+// Create specialized upload middleware for different scenarios
+export const uploadVideo = upload.fields([
+  { name: 'videoFile', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 }
+]);
+
+export const uploadUserFiles = upload.fields([
+  { name: 'avatar', maxCount: 1 },
+  { name: 'coverImage', maxCount: 1 }
+]);
+
+export { upload};

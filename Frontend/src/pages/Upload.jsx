@@ -2,14 +2,34 @@ import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { videoAPI } from '../services/api';
 
+const CATEGORIES = [
+  'Technology',
+  'Programming',
+  'Design',
+  'Business',
+  'Marketing',
+  'Personal Development',
+  'Health & Fitness',
+  'Music',
+  'Other'
+];
+
+const DIFFICULTY_LEVELS = [
+  'beginner',
+  'intermediate',
+  'advanced'
+];
+
 const Upload = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    video: null,
+    videoFile: null,
     thumbnail: null,
+    category: '',
+    difficulty: 'intermediate'
   });
 
   const handleFileChange = (e) => {
@@ -31,7 +51,7 @@ const Upload = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.video) {
+    if (!formData.videoFile) {
       toast.error('Please select a video to upload');
       return;
     }
@@ -41,12 +61,19 @@ const Upload = () => {
       return;
     }
 
+    if (!formData.category) {
+      toast.error('Please select a category');
+      return;
+    }
+
     try {
       setIsUploading(true);
       const data = new FormData();
       data.append('title', formData.title);
       data.append('description', formData.description);
-      data.append('video', formData.video);
+      data.append('videoFile', formData.videoFile);
+      data.append('category', formData.category);
+      data.append('difficulty', formData.difficulty);
       if (formData.thumbnail) {
         data.append('thumbnail', formData.thumbnail);
       }
@@ -59,8 +86,10 @@ const Upload = () => {
       setFormData({
         title: '',
         description: '',
-        video: null,
+        videoFile: null,
         thumbnail: null,
+        category: '',
+        difficulty: 'intermediate'
       });
       setUploadProgress(0);
     } catch (error) {
@@ -82,13 +111,13 @@ const Upload = () => {
       <div className="bg-card rounded-lg shadow-sm">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           <div>
-            <label htmlFor="video" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="videoFile" className="block text-sm font-medium text-foreground mb-2">
               Video File
             </label>
             <input
               type="file"
-              id="video"
-              name="video"
+              id="videoFile"
+              name="videoFile"
               accept="video/*"
               onChange={handleFileChange}
               className="block w-full text-sm text-foreground
@@ -133,6 +162,43 @@ const Upload = () => {
               className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
               placeholder="Enter video title"
             />
+          </div>
+
+          <div>
+            <label htmlFor="category" className="block text-sm font-medium text-foreground mb-2">
+              Category
+            </label>
+            <select
+              id="category"
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              required
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
+            >
+              <option value="">Select a category</option>
+              {CATEGORIES.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="difficulty" className="block text-sm font-medium text-foreground mb-2">
+              Difficulty Level
+            </label>
+            <select
+              id="difficulty"
+              name="difficulty"
+              value={formData.difficulty}
+              onChange={handleInputChange}
+              required
+              className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
+            >
+              {DIFFICULTY_LEVELS.map(level => (
+                <option key={level} value={level}>{level.charAt(0).toUpperCase() + level.slice(1)}</option>
+              ))}
+            </select>
           </div>
 
           <div>
