@@ -5,6 +5,7 @@ import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose"
+import fs from "fs"
 
 const generateAccessAndRefreshTokens = async(userId) => {
     try {
@@ -42,57 +43,87 @@ const registerUser = asyncHandler(async (req,res) => {
 
     // Handle file uploads
     let avatarLocalPath;
-    if (req.files && Array.isArray(req.files.avatar) && req.files.avatar.length > 0) {
-        avatarLocalPath = req.files.avatar[0].path;
-    }
-
     let coverImageLocalPath;
-    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
-        coverImageLocalPath = req.files.coverImage[0].path;
-    }
-
-    // If no avatar is uploaded, use a default avatar URL
-    let avatarUrl = "https://res.cloudinary.com/drc4tsoab/image/upload/v1709067374/default_avatar.png";
     
-    // If avatar is uploaded, try to upload it to cloudinary
-    if (avatarLocalPath) {
-        const avatar = await uploadOnCloudinary(avatarLocalPath);
-        if (avatar) {
-            avatarUrl = avatar.url;
+    try {
+        // Handle avatar upload
+        if (req.files && Array.isArray(req.files.avatar) && req.files.avatar.length > 0) {
+            avatarLocalPath = req.files.avatar[0].path;
         }
-    }
 
-    // Handle cover image upload
-    let coverImageUrl = "";
-    if (coverImageLocalPath) {
-        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-        if (coverImage) {
-            coverImageUrl = coverImage.url;
+        // Handle cover image upload
+        if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+            coverImageLocalPath = req.files.coverImage[0].path;
         }
+
+        // If no avatar is uploaded, use a default avatar URL
+        let avatarUrl = "https://res.cloudinary.com/drc4tsoab/image/upload/v1709067374/default_avatar.png";
+        
+        // If avatar is uploaded, try to upload it to cloudinary
+        if (avatarLocalPath) {
+            try {
+                const avatar = await uploadOnCloudinary(avatarLocalPath);
+                if (avatar) {
+                    avatarUrl = avatar.url;
+                }
+            } catch (uploadError) {
+                console.error("Avatar upload error:", uploadError);
+                // Continue with default avatar
+            }
+        }
+
+        // Handle cover image upload
+        let coverImageUrl = "";
+        if (coverImageLocalPath) {
+            try {
+                const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+                if (coverImage) {
+                    coverImageUrl = coverImage.url;
+                }
+            } catch (uploadError) {
+                console.error("Cover image upload error:", uploadError);
+                // Continue without cover image
+            }
+        }
+
+        // Create user
+        const user = await User.create({
+            fullName,
+            avatar: avatarUrl,
+            coverImage: coverImageUrl || "",
+            email,
+            password,
+            username: username.toLowerCase()
+        });
+
+        // Get created user without sensitive fields
+        const createdUser = await User.findById(user._id).select(
+            "-password -refreshToken"
+        );
+
+        if (!createdUser) {
+            throw new ApiError(500, "Something went wrong while registering the user");
+        }
+
+        return res.status(201).json(
+            new ApiResponse(200, createdUser, "User registered Successfully")
+        );
+    } catch (error) {
+        // Clean up any uploaded files if registration fails
+        try {
+            if (avatarLocalPath && fs.existsSync(avatarLocalPath)) {
+                fs.unlinkSync(avatarLocalPath);
+            }
+            if (coverImageLocalPath && fs.existsSync(coverImageLocalPath)) {
+                fs.unlinkSync(coverImageLocalPath);
+            }
+        } catch (cleanupError) {
+            console.error("Error cleaning up files:", cleanupError);
+        }
+
+        // Re-throw the original error
+        throw error;
     }
-
-    // Create user
-    const user = await User.create({
-        fullName,
-        avatar: avatarUrl,
-        coverImage: coverImageUrl,
-        email,
-        password,
-        username: username.toLowerCase()
-    })
-
-    // Get created user without sensitive fields
-    const createdUser = await User.findById(user._id).select(
-        "-password -refreshToken"
-    )
-
-    if (!createdUser) {
-        throw new ApiError(500, "Something went wrong while registering the user")
-    }
-
-    return res.status(201).json(
-        new ApiResponse(200, createdUser, "User registered Successfully")
-    )
 })
 
 const loginUser = asyncHandler(async (req,res) => {

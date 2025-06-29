@@ -1,38 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { videoAPI } from '../services/api';
-import VideoGrid from '../components/video/VideoGrid';
+import React from 'react';
+import { useAuth } from '../hooks/useAuth';
+import { Link } from 'react-router-dom';
+import { Button } from '../components/ui/button';
 
-export default function Home() {
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    videoAPI.getAllVideos()
-      .then((res) => {
-        setVideos(res.data?.data || []);
-      })
-      .catch((err) => {
-        console.error('Failed to fetch videos:', err);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+const Home = () => {
+  const { user } = useAuth();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Welcome to EduTube AI</h1>
-        <p className="mt-2 text-gray-600">
-          Discover educational videos enhanced with AI-powered features
+      <div className="text-center">
+        <h1 className="text-4xl font-bold text-foreground sm:text-5xl md:text-6xl">
+          Welcome to Levelling AI
+        </h1>
+        <p className="mt-3 max-w-md mx-auto text-base text-muted-foreground sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+          Your personalized AI-powered learning platform
         </p>
-      </div>
-      
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
+          {!user && (
+            <Button asChild size="lg" className="w-full sm:w-auto">
+              <Link to="/register">
+                Get Started
+              </Link>
+            </Button>
+          )}
         </div>
-      ) : (
-        <VideoGrid videos={videos} />
-      )}
+      </div>
     </div>
   );
-}
+};
+
+export { Home as default };

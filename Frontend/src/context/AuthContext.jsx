@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authAPI } from '../services/auth.service';
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -11,10 +13,18 @@ export const useAuth = () => {
   return context;
 };
 
+// Loading component
+const LoadingSpinner = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
+  </div>
+);
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   // Check if user is logged in on app start
   useEffect(() => {
@@ -29,6 +39,7 @@ export const AuthProvider = ({ children }) => {
         console.error('Auth check failed:', error);
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
       } finally {
         setLoading(false);
       }
@@ -37,60 +48,63 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, []);
 
-  const login = async (credentials) => {
+  const login = useCallback(async (credentials) => {
     try {
       setError(null);
-      const response = await authAPI.login(credentials);
-      const { user: userData, accessToken, refreshToken } = response;
-      
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      
-      setUser(userData);
+      const data = await authAPI.login(credentials);
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
       return { success: true };
     } catch (error) {
-      setError(error.message || 'Login failed');
-      return { success: false, error: error.message };
+      const errorMessage = error.message || 'Login failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw error;
     }
-  };
+  }, []);
 
-  const register = async (userData) => {
+  const register = useCallback(async (userData) => {
     try {
       setError(null);
-      const response = await authAPI.register(userData);
-      const { user: newUser, accessToken, refreshToken } = response;
-      
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-      
-      setUser(newUser);
+      const data = await authAPI.register(userData);
+      setUser(data.user);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      toast.success("Welcome to Levelling AI!");
       return { success: true };
     } catch (error) {
-      setError(error.message || 'Registration failed');
-      return { success: false, error: error.message };
+      const errorMessage = error.message || 'Registration failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw error;
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authAPI.logout();
+      setUser(null);
+      toast.success("Logged out successfully");
+      navigate("/login");
     } catch (error) {
       console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      toast.error("Failed to logout properly, but you've been logged out locally");
+      // Still clear everything locally
       setUser(null);
+      navigate("/login");
     }
-  };
+  }, [navigate]);
 
   const updateProfile = async (profileData) => {
     try {
       const updatedUser = await authAPI.updateProfile(profileData);
       setUser(updatedUser);
+      toast.success("Profile updated successfully");
       return { success: true };
     } catch (error) {
-      setError(error.message || 'Profile update failed');
-      return { success: false, error: error.message };
+      const errorMessage = error.message || 'Profile update failed';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      throw error;
     }
   };
 
@@ -104,6 +118,10 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     isAuthenticated: !!user,
   };
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <AuthContext.Provider value={value}>
